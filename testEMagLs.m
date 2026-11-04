@@ -133,7 +133,7 @@ binEMls = binauralDecode(shSigSma, fs, wEMlsL, wEMlsR, fs);
 binEMls2 = binauralDecode(smaSig, fs, wEMls2L, wEMls2R, fs);
 
 % for EMA rendering, there two options: using SHs (allowing for 3DoF
-% headtracking) or using CHs (supporting 1DoF headtracking)
+% head tracking) or using CHs (supporting 1DoF head tracking)
 binEMlsEmaCh = binauralDecode(chSigEma, fs, wEMlsLEmaCh, wEMlsREmaCh, fs);
 binEMlsEmaSh = binauralDecode(shSigEma, fs, wEMlsLEmaSh, wEMlsREmaSh, fs);
 

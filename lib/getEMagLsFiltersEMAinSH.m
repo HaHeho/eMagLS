@@ -33,8 +33,8 @@ if nargin < 12; chFunction = @getCH; end
 if nargin < 11; shFunction = @getSH; end
 if nargin < 10 || isempty(shDefinition); shDefinition = 'real'; end
 
-NFFT_MAX_LEN            = 2048; % maxium oversamping length in samples
-F_CUT_MIN_FREQ          = 1e3; % minimum transition freqeuncy in Hz
+NFFT_MAX_LEN            = 2048; % maximum oversampling length in samples
+F_CUT_MIN_FREQ          = 1e3; % minimum transition frequency in Hz
 SIMULATION_WAVE_MODEL   = 'planeWave'; % see `getSMAIRMatrix()`
 SIMULATION_ARRAY_TYPE   = 'rigid'; % see `getSMAIRMatrix()`
 SVD_REGUL_CONST         = 0.01;
@@ -75,34 +75,75 @@ emaIrDir = permute(emaIrDir, [3, 1, 2]);
 % decompose with EMA functions without radial filters
 numHarmonics = (order+1)^2;
 numDirections = size(hL, 2);
-emaIrDir_sh = zeros(numPosFreqs, numHarmonics, numDirections);
-YCh = chFunction(order, micGridAziRad, shDefinition);
-J = getChToShExpansionMatrix(order,shDefinition);
-for d = 1 : numDirections
-    emaIrDir_sh(:, :, d) = emaIrDir(:, :, d) * pinv(YCh.') * J.';
-end
+% emaIrDir_sh = zeros(numPosFreqs, numHarmonics, numDirections);
+% YCh = chFunction(order, micGridAziRad, shDefinition);
+% J = getChToShExpansionMatrix(order,shDefinition);
+% for d = 1 : numDirections
+%     emaIrDir_sh(:, :, d) = emaIrDir(:, :, d) * pinv(YCh.') * J.';
+% end
 
-% rotate the EMA SH sound field to impose the HRIR elevation
+% tic;
+% emaIrDir_sh = zeros(numPosFreqs, numHarmonics, numDirections);
+% YCh = chFunction(order, micGridAziRad, shDefinition);
+% J = getChToShExpansionMatrix(order,shDefinition);
+% for d = 1 : numDirections
+%     emaIrDir_sh(:, :, d) = emaIrDir(:, :, d) * pinv(YCh.') * J.';
+% end
+% toc;
+% 
+% tic;
+% Y_CH_pinv = pinv(chFunction(order, micGridAziRad, shDefinition));
+% Y_SH_pinv = (getChToShExpansionMatrix(order, shDefinition) * Y_CH_pinv).';
+% emaIrDir_sh2 = zeros(numPosFreqs, numHarmonics, numDirections);
+% for d = 1 : numDirections
+%     emaIrDir_sh2(:, :, d) = emaIrDir(:, :, d) * Y_SH_pinv;
+% end
+% toc;
+% 
+% tic;
+% Y_CH_pinv = pinv(chFunction(order, micGridAziRad, shDefinition));
+% Y_SH_pinv = getChToShExpansionMatrix(order, shDefinition) * Y_CH_pinv;
+% emaIrDir_sh3 = pagemtimes(emaIrDir, Y_SH_pinv.');
+% toc;
+% 
+% tic;
+% Y_CH_pinv = pinv(chFunction(order, micGridAziRad, shDefinition).');
+% Y_SH_pinv = Y_CH_pinv * getChToShExpansionMatrix(order, shDefinition).';
+% emaIrDir_sh4 = pagemtimes(emaIrDir, Y_SH_pinv);
+% toc;
+% 
+% all(emaIrDir_sh2 == emaIrDir_sh, 'all')
+% all(emaIrDir_sh3 == emaIrDir_sh, 'all')
+% all(emaIrDir_sh4 == emaIrDir_sh, 'all')
+% [sum(abs(real(emaIrDir_sh2 - emaIrDir_sh)), "all"), sum(abs(imag(emaIrDir_sh2 - emaIrDir_sh)), "all")]
+% [sum(abs(real(emaIrDir_sh3 - emaIrDir_sh)), "all"), sum(abs(imag(emaIrDir_sh3 - emaIrDir_sh)), "all")]
+% [sum(abs(real(emaIrDir_sh4 - emaIrDir_sh)), "all"), sum(abs(imag(emaIrDir_sh4 - emaIrDir_sh)), "all")]
+% [sum(abs(real(emaIrDir_sh)), "all"), sum(abs(imag(emaIrDir_sh)), "all")]
+
+Y_CH_pinv = pinv(chFunction(order, micGridAziRad, shDefinition));
+Y_SH_pinv = getChToShExpansionMatrix(order, shDefinition) * Y_CH_pinv;
+emaIrDir_sh = pagemtimes(emaIrDir, Y_SH_pinv.');
+
+sh_rot_matrix = zeros(numHarmonics, numHarmonics, numDirections);
 for d = 1 : numDirections
     if hrirGridZenRad(d) ~= pi/2
         % NOTE: This uses the SHT convention of spherical harmonics.
         %       Therefore, the resulting rotation matrices may not be
         %       correct for other conventions!
 
-        % 1) rotate SH represention so that the plane wave impinges from the front
-        % 2) rotate SH represention to impose the inverted desired elevation of incidence
+        % 1) rotate SH representation so that the plane wave impinges from the front
+        % 2) rotate SH representation to impose the inverted desired elevation of incidence
         %    (and convert colatitude to elevation)
-        % 3) rotate SH represention back to the original azimuth
-        euler_matrix  = euler2rotationMatrix(-hrirGridAziRad(d), ...
+        % 3) rotate SH representation back to the original azimuth
+        euler_matrix = euler2rotationMatrix(-hrirGridAziRad(d), ...
             hrirGridZenRad(d) - pi/2, hrirGridAziRad(d), 'zyz');
-        sh_rot_matrix = getSHrotMtx(euler_matrix, order, shDefinition);
-        emaIrDir_sh(:, :, d) = emaIrDir_sh(:, :, d) * sh_rot_matrix;
+            % pi/2 + hrirGridZenRad(d), hrirGridAziRad(d), 'zyz');
+        sh_rot_matrix(:, :, d) = getSHrotMtx(euler_matrix, order, shDefinition);
     end
-end; clear d euler_matrix sh_rot_matrix;
-
-% to frequency domain
+end
+emaIrDir_sh = pagemtimes(emaIrDir_sh, sh_rot_matrix);
 pwGridAll = permute(emaIrDir_sh, [2, 3, 1]);
-clear emaIrDir_sh;
+clear d euler_matrix sh_rot_matrix emaIrDir_sh;
 
 % zero pad and remove group delay with subsample precision
 % (alternative to applying global phase delay later)
@@ -142,8 +183,8 @@ for k = 2:numPosFreqs
     end
 end
 
-% mamnually set the DC bin (use `real()` instead of `abs()`, which causes 
-% strong a magnitude errors in the rendering results at low frequencies)
+% manually set the DC bin (use `real()` instead of `abs()`, which causes
+% strong magnitude errors in the rendering results at low frequencies)
 W_MLS_l(1, :) = real(W_MLS_l(2, :));
 W_MLS_r(1, :) = real(W_MLS_r(2, :));
 

@@ -32,8 +32,8 @@ function [wMlsL, wMlsR] = getEMagLs2Filters(hL, hR, hrirGridAziRad, hrirGridZenR
 if nargin < 12; shFunction = @getSH; end
 if nargin < 11 || isempty(shDefinition); shDefinition = 'real'; end
 
-NFFT_MAX_LEN            = 2048; % maxium oversamping length in samples
-F_CUT_MIN_FREQ          = 1e3; % minimum transition freqeuncy in Hz
+NFFT_MAX_LEN            = 2048; % maximum oversampling length in samples
+F_CUT_MIN_FREQ          = 1e3; % minimum transition frequency in Hz
 SIMULATION_WAVE_MODEL   = 'planeWave'; % see `getSMAIRMatrix()`
 SIMULATION_ARRAY_TYPE   = 'rigid'; % see `getSMAIRMatrix()`
 SVD_REGUL_CONST         = 0.01;
@@ -64,7 +64,6 @@ smairMat = getSMAIRMatrix(params);
 simulationOrder = sqrt(size(smairMat, 2)) - 1;
 
 numMics = length(micGridAziRad);
-numDirections = size(hL, 2);
 Y_conj = shFunction(simulationOrder, [hrirGridAziRad, hrirGridZenRad], shDefinition)';
 
 % zero pad and remove group delay with subsample precision
@@ -76,7 +75,7 @@ grpDR = median(grpdelay(sum(hR, 2), 1, f, fs));
 hL = applySubsampleDelay(hL, -grpDL);
 hR = applySubsampleDelay(hR, -grpDR);
 
-% transform into frequency domain
+% to frequency domain
 HL = fft(hL);
 HR = fft(hR);
 
@@ -104,7 +103,7 @@ for k = 2:numPosFreqs
     end
 end
 
-% mamnually set the DC bin (use `real()` instead of `abs()`, which causes
+% manually set the DC bin (use `real()` instead of `abs()`, which causes
 % strong a magnitude errors in the rendering results at low frequencies)
 W_MLS_l(1, :) = real(W_MLS_l(2, :));
 W_MLS_r(1, :) = real(W_MLS_r(2, :));

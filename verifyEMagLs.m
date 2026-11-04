@@ -151,7 +151,7 @@ clear refDiffusenessConst;
 
 if DO_VERIFY_REFERENCE
     if DO_OVERRIDE_REFERENCE
-        warning('Veryfying rendering filters ... skipped.');
+        warning('Verifying rendering filters ... skipped.');
     else
         try
             % TODO: This verification could also check the match of other parameters
